@@ -37,7 +37,9 @@ startParticles();
 
 async function loadPosts() {
   try {
-    const response = await fetch('/api/posts');
+    const response = await fetch(`/api/posts?ts=${Date.now()}`, {
+      cache: 'no-store'
+    });
 
     if (!response.ok) {
       throw new Error('Nao foi possivel carregar as postagens.');

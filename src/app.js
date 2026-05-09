@@ -38,10 +38,15 @@ export function createApp() {
 
   app.get('/api/posts', async (_request, response, next) => {
     try {
+      response.set('Cache-Control', 'no-store, max-age=0');
       response.json({ posts: await listPosts(dataFile) });
     } catch (error) {
       next(error);
     }
+  });
+
+  app.get('/favicon.ico', (_request, response) => {
+    response.status(204).end();
   });
 
   app.post('/api/posts/:id/tmdb/refresh', async (request, response, next) => {
@@ -105,18 +110,24 @@ export function createApp() {
       const telegramMessage = extractTelegramMessage(request.body);
 
       if (!telegramMessage) {
+        console.info('[telegram-webhook] skipped unsupported_update');
         return response.status(202).json({ ok: true, skipped: 'unsupported_update' });
       }
 
       const chatId = String(telegramMessage.chat?.id ?? '');
 
       if (allowedChatId && chatId !== allowedChatId) {
+        console.info('[telegram-webhook] skipped chat_not_allowed', { chatId });
         return response.status(202).json({ ok: true, skipped: 'chat_not_allowed' });
       }
 
       const parsedPosts = parseTelegramPosts(telegramMessage);
 
       if (!parsedPosts.isValid) {
+        console.info('[telegram-webhook] skipped missing_required_fields', {
+          chatId,
+          errors: parsedPosts.errors
+        });
         return response.status(202).json({
           ok: true,
           skipped: 'missing_required_fields',
@@ -171,6 +182,13 @@ export function createApp() {
         created: createdCount,
         updated: savedPosts.length - createdCount,
         posts: savedPosts
+      });
+      console.info('[telegram-webhook] processed', {
+        chatId,
+        messageId: telegramMessage.message_id,
+        parsed: parsedPosts.posts.length,
+        created: createdCount,
+        updated: savedPosts.length - createdCount
       });
     } catch (error) {
       next(error);

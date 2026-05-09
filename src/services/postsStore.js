@@ -21,6 +21,13 @@ export async function upsertTelegramPost(dataFile, postInput) {
       return true;
     }
 
+    // Quando a mensagem vem do Telegram, o sourceKey inclui o ID da mensagem.
+    // Assim uma lista reenviada pelo bot deve gerar uma nova atualizacao,
+    // enquanto edicoes/reentregas da mesma mensagem atualizam o registro.
+    if (postInput.sourceKey) {
+      return false;
+    }
+
     return samePostOnSameDay(post, postInput);
   });
 

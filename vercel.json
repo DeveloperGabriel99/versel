@@ -20,6 +20,10 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/favicon.ico",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/",
       "dest": "/index.html"
     },
