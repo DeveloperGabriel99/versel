@@ -1,5 +1,6 @@
 const URL_PATTERN = /(https?:\/\/[^\s]+)/i;
 const SEASON_PATTERN = /\bS\d{1,3}E\d{1,3}(?:\s*-\s*E?\d{1,3})?\b/i;
+const YEAR_PATTERN = /\((?:19|20)\d{2}\)/;
 
 const FIELD_ALIASES = {
   title: new Set(['titulo', 'title']),
@@ -137,12 +138,12 @@ function parseBatchTelegramPosts(rawText) {
       continue;
     }
 
-    if (!isLikelyContentLine(cleanLine, currentCategory)) {
+    if (!isLikelyContentLine(cleanLine, currentCategory, line)) {
       continue;
     }
 
     const link = cleanUrl(cleanLine.match(URL_PATTERN)?.[1]);
-    const title = cleanText(removeUrl(cleanLine, link));
+    const title = cleanText(stripContentLabel(removeLeadingRank(removeUrl(cleanLine, link))));
 
     if (!title) {
       continue;
@@ -197,6 +198,20 @@ function stripLeadingSymbol(value) {
   return value.replace(/^[^\p{L}\p{N}#@]+/u, '').trim();
 }
 
+function removeLeadingRank(value) {
+  return value
+    .replace(/^\d+\uFE0F?\u20E3\s*/u, '')
+    .replace(/^\d+\s*[\).:-]\s*/, '')
+    .trim();
+}
+
+function stripContentLabel(value) {
+  return value
+    .replace(/^canais?\s*:\s*/i, '')
+    .replace(/^canal\s*:\s*/i, '')
+    .trim();
+}
+
 function cleanUrl(value) {
   const url = String(value ?? '')
     .trim()
@@ -230,6 +245,10 @@ function isCategoryLine(line) {
     return false;
   }
 
+  if (isTopListHeader(normalized)) {
+    return true;
+  }
+
   return normalized.includes('atualizad')
     || normalized.includes('adicionad')
     || normalized.includes('lancament')
@@ -237,18 +256,35 @@ function isCategoryLine(line) {
     || isCategoryHeader(normalized);
 }
 
-function isLikelyContentLine(line, currentCategory) {
+function isLikelyContentLine(line, currentCategory, rawLine = line) {
+  const normalized = normalizeLabel(line);
+
   if (SEASON_PATTERN.test(line) || URL_PATTERN.test(line)) {
     return true;
   }
 
-  return ['Filmes', 'Series', 'Canais', 'Novelas', 'Doramas', 'Animes', 'Realsshorts'].includes(currentCategory) && line.length > 2;
+  if (hasContentMarker(rawLine)) {
+    return true;
+  }
+
+  if (currentCategory === 'Filmes' && YEAR_PATTERN.test(line)) {
+    return true;
+  }
+
+  if (currentCategory === 'Canais') {
+    return normalized.includes('canal') || normalized.includes('tv');
+  }
+
+  return false;
 }
 
 function shouldIgnoreBatchLine(line) {
   const normalized = normalizeLabel(stripLeadingSymbol(line));
 
-  return normalized === 's = temporada / e = episodio';
+  return normalized === 's = temporada / e = episodio'
+    || normalized.startsWith('atualizacao de conteudo')
+    || normalized.startsWith('ja esta disponivel')
+    || normalized.startsWith('categoria:');
 }
 
 function normalizeCategory(value) {
@@ -285,6 +321,18 @@ function isCategoryHeader(normalizedLine) {
         ));
     });
   });
+}
+
+function isTopListHeader(normalizedLine) {
+  return normalizedLine.includes('top')
+    && normalizedLine.includes('mais assistid')
+    && CATEGORY_ALIASES.some(({ aliases }) => {
+      return aliases.some((alias) => normalizedLine.includes(normalizeLabel(alias)));
+    });
+}
+
+function hasContentMarker(line) {
+  return /^\s*(?:[🎥🥇🥈🥉🔟]|\d+\uFE0F?\u20E3|\d+[\).:-])/u.test(line);
 }
 
 function hashText(value) {
