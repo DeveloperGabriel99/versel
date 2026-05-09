@@ -17,12 +17,12 @@ const modalOverview = document.querySelector('#modal-overview');
 const CATEGORY_MENUS = [
   { id: 'todos', label: 'Todos' },
   { id: 'filmes', label: 'Filmes' },
-  { id: 'series', label: 'Series' },
+  { id: 'series', label: 'Séries' },
   { id: 'canais', label: 'Canais' },
   { id: 'novelas', label: 'Novelas' },
   { id: 'doramas', label: 'Doramas' },
   { id: 'animes', label: 'Animes' },
-  { id: 'realsshorts', label: 'Realsshorts' },
+  { id: 'realsshorts', label: 'Real Shorts' },
   { id: 'outros', label: 'Outros' }
 ];
 
@@ -42,7 +42,7 @@ async function loadPosts() {
     });
 
     if (!response.ok) {
-      throw new Error('Nao foi possivel carregar as postagens.');
+      throw new Error('Não foi possível carregar os conteúdos.');
     }
 
     const { posts } = await response.json();
@@ -50,8 +50,8 @@ async function loadPosts() {
   } catch (error) {
     dateFeed.innerHTML = '';
     emptyState.hidden = false;
-    emptyState.textContent = 'Nao foi possivel carregar as postagens agora.';
-    postsCount.textContent = 'Indisponivel';
+    emptyState.textContent = 'Não foi possível carregar os conteúdos agora.';
+    postsCount.textContent = 'Indisponível';
     console.error(error);
   }
 }
@@ -105,13 +105,13 @@ function renderActiveFeed() {
   dateFeed.innerHTML = '';
   emptyState.hidden = filteredPosts.length > 0;
   activeTitle.textContent = activeMenu?.label ?? 'Todos';
-  activeSummary.textContent = `${filteredPosts.length} ${filteredPosts.length === 1 ? 'item neste menu' : 'itens neste menu'}`;
-  postsCount.textContent = `${latestPosts.length} ${latestPosts.length === 1 ? 'post' : 'posts'}`;
+  activeSummary.textContent = `${filteredPosts.length} ${filteredPosts.length === 1 ? 'conteúdo neste menu' : 'conteúdos neste menu'}`;
+  postsCount.textContent = `${latestPosts.length} ${latestPosts.length === 1 ? 'conteúdo' : 'conteúdos'}`;
 
   if (filteredPosts.length === 0) {
     emptyState.textContent = activeCategory === 'todos'
-      ? 'Nenhuma postagem publicada ainda.'
-      : 'Nenhuma postagem publicada neste menu ainda.';
+      ? 'Nenhum conteúdo publicado ainda.'
+      : 'Nenhum conteúdo publicado neste menu ainda.';
     return;
   }
 
@@ -144,7 +144,7 @@ function createDateSection(group) {
   title.textContent = group.label;
 
   const count = document.createElement('span');
-  count.textContent = `${group.posts.length} ${group.posts.length === 1 ? 'atualizacao' : 'atualizacoes'}`;
+  count.textContent = `${group.posts.length} ${group.posts.length === 1 ? 'atualização' : 'atualizações'}`;
 
   header.append(title, count);
 
@@ -291,7 +291,7 @@ function getOverviewText(post, maxLength) {
   const overview = String(post.overview ?? '').trim();
 
   if (!overview) {
-    return 'Atualização adicionada ao catálogo StreamCode.';
+    return 'Conteúdo adicionado ao servidor StreamCode.';
   }
 
   if (overview.length <= maxLength) {
@@ -307,7 +307,7 @@ function buildMetaText(post) {
     post.mediaType === 'movie' ? 'Filme' : post.mediaType === 'tv' ? 'Série/TV' : ''
   ].filter(Boolean);
 
-  return parts.length > 0 ? parts.join(' • ') : 'Atualização do catálogo';
+  return parts.length > 0 ? parts.join(' • ') : 'Conteúdo do servidor';
 }
 
 function getInitials(title) {
@@ -373,12 +373,12 @@ function normalizeCategory(value) {
   const normalized = removeAccents(value).toLowerCase();
 
   if (normalized.includes('filme')) return 'Filmes';
-  if (normalized.includes('serie')) return 'Series';
+  if (normalized.includes('serie')) return 'Séries';
   if (normalized.includes('canai') || normalized.includes('canal') || normalized.includes('programa de tv')) return 'Canais';
   if (normalized.includes('novela')) return 'Novelas';
   if (normalized.includes('dorama')) return 'Doramas';
   if (normalized.includes('anime') || normalized.includes('animacao')) return 'Animes';
-  if (normalized.includes('realshort') || normalized.includes('reals short') || normalized.includes('short')) return 'Realsshorts';
+  if (normalized.includes('realshort') || normalized.includes('reals short') || normalized.includes('short')) return 'Real Shorts';
 
   return 'Outros';
 }
