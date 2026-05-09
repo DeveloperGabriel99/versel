@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Blog automatizado que publica cards a partir de mensagens recebidas pelo Telegram.",
   "type": "module",
-  "main": "src/server.js",
+  "main": "api/index.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
