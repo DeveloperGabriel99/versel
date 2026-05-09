@@ -6,22 +6,25 @@
       "includeFiles": "{data/posts.json,public/**}"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
-      "destination": "/index.html"
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/api/:path*",
-      "destination": "/api/index.js"
+      "src": "/webhook/telegram",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/webhook/telegram",
-      "destination": "/api/index.js"
+      "src": "/health",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/health",
-      "destination": "/api/index.js"
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
+      "handle": "filesystem"
     }
   ]
 }
