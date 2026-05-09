@@ -9,7 +9,7 @@ import {
   listPosts,
   removePostTmdbMetadata,
   updatePostTmdbMetadata,
-  upsertTelegramPost
+  upsertTelegramPosts
 } from './services/postsStore.js';
 import { syncTmdbMetadata } from './services/tmdbService.js';
 
@@ -141,11 +141,13 @@ export function createApp() {
         uploadsDir
       });
 
-      const savedPosts = [];
-      let createdCount = 0;
+      const postInputs = await mapWithConcurrency(parsedPosts.posts, 10, async (parsedPost, index) => {
+        const metadata = await syncTmdbMetadata({
+          title: parsedPost.title,
+          category: parsedPost.category
+        });
 
-      for (const [index, parsedPost] of parsedPosts.posts.entries()) {
-        const result = await upsertTelegramPost(dataFile, {
+        return {
           title: parsedPost.title,
           category: parsedPost.category,
           link: parsedPost.link,
@@ -153,29 +155,18 @@ export function createApp() {
           telegramChatId: chatId,
           telegramMessageId: telegramMessage.message_id,
           sourceKey: `${chatId}:${telegramMessage.message_id}:${parsedPost.sourceItemKey ?? index}`,
-          publishedAt: getTelegramDate(telegramMessage)
-        });
-        let post = result.post;
-        const shouldSyncTmdb = result.created || result.contentChanged || !post.posterPath;
+          publishedAt: getTelegramDate(telegramMessage),
+          ...(metadata ?? {})
+        };
+      });
 
-        if (shouldSyncTmdb) {
-          const metadata = await syncTmdbMetadata({
-            title: parsedPost.title,
-            category: parsedPost.category,
-            mediaType: post.mediaType
-          });
-
-          if (metadata) {
-            post = await updatePostTmdbMetadata(dataFile, post.id, metadata);
-          }
-        }
-
-        if (result.created) {
-          createdCount += 1;
-        }
-
-        savedPosts.push(post);
-      }
+      const results = await upsertTelegramPosts(dataFile, postInputs);
+      const savedPosts = results.map((result) => result.post);
+      const createdCount = results.filter((result) => result.created).length;
+      const categorySummary = savedPosts.reduce((summary, post) => {
+        summary[post.category] = (summary[post.category] ?? 0) + 1;
+        return summary;
+      }, {});
 
       response.status(createdCount > 0 ? 201 : 200).json({
         ok: true,
@@ -188,7 +179,8 @@ export function createApp() {
         messageId: telegramMessage.message_id,
         parsed: parsedPosts.posts.length,
         created: createdCount,
-        updated: savedPosts.length - createdCount
+        updated: savedPosts.length - createdCount,
+        categories: categorySummary
       });
     } catch (error) {
       next(error);
@@ -229,6 +221,23 @@ function requireAdminAccess(request, response) {
   }
 
   return true;
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return results;
 }
 
 function resolveDataFile(configuredPath, baseDir) {

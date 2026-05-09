@@ -10,7 +10,7 @@ const FIELD_ALIASES = {
 
 const CATEGORY_ALIASES = [
   { category: 'Filmes', aliases: ['filme', 'filmes', 'movies'] },
-  { category: 'Series', aliases: ['serie', 'series', 'seriado', 'seriados'] },
+  { category: 'Series', aliases: ['serie', 'series', 'ries', 'seriado', 'seriados'] },
   { category: 'Canais', aliases: ['canal', 'canais', 'tv', 'programa de tv', 'programas de tv'] },
   { category: 'Novelas', aliases: ['novela', 'novelas'] },
   { category: 'Doramas', aliases: ['dorama', 'doramas', 'drama', 'kdrama', 'k-drama'] },
@@ -275,13 +275,13 @@ function isLikelyContentLine(line, currentCategory, rawLine = line) {
     return normalized.includes('canal') || normalized.includes('tv');
   }
 
-  return false;
+  return ['Series', 'Novelas', 'Doramas', 'Animes'].includes(currentCategory) && line.length > 2;
 }
 
 function shouldIgnoreBatchLine(line) {
   const normalized = normalizeLabel(stripLeadingSymbol(line));
 
-  return normalized === 's = temporada / e = episodio'
+  return normalized.startsWith('s = temporada')
     || normalized.startsWith('atualizacao de conteudo')
     || normalized.startsWith('ja esta disponivel')
     || normalized.startsWith('categoria:');

@@ -151,7 +151,12 @@ async function tmdbRequest(endpoint, params = {}) {
     url.searchParams.set('api_key', process.env.TMDB_API_KEY.trim());
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, {
+    headers,
+    signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(5000)
+      : undefined
+  });
 
   if (!response.ok) {
     throw new Error(`TMDb request failed with status ${response.status}`);

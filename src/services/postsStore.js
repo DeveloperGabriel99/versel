@@ -15,6 +15,21 @@ export async function listPosts(dataFile) {
 
 export async function upsertTelegramPost(dataFile, postInput) {
   const posts = await readPosts(dataFile);
+  const result = upsertTelegramPostInMemory(posts, postInput);
+
+  await writePosts(dataFile, posts);
+  return result;
+}
+
+export async function upsertTelegramPosts(dataFile, postInputs) {
+  const posts = await readPosts(dataFile);
+  const results = postInputs.map((postInput) => upsertTelegramPostInMemory(posts, postInput));
+
+  await writePosts(dataFile, posts);
+  return results;
+}
+
+function upsertTelegramPostInMemory(posts, postInput) {
   const sourceKey = postInput.sourceKey ?? `${postInput.telegramChatId}:${postInput.telegramMessageId}`;
   const existingIndex = posts.findIndex((post) => {
     if (post.source === 'telegram' && post.sourceKey === sourceKey) {
@@ -64,7 +79,6 @@ export async function upsertTelegramPost(dataFile, postInput) {
       ...nextPost
     };
 
-    await writePosts(dataFile, posts);
     return { post: posts[existingIndex], created: false, contentChanged };
   }
 
@@ -74,8 +88,6 @@ export async function upsertTelegramPost(dataFile, postInput) {
   };
 
   posts.push(createdPost);
-  await writePosts(dataFile, posts);
-
   return { post: createdPost, created: true, contentChanged: true };
 }
 
