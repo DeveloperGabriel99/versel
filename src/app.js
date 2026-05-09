@@ -28,6 +28,10 @@ export function createApp() {
   app.use(express.json({ limit: '15mb' }));
   app.use(express.static(publicDir));
 
+  app.get('/', (_request, response) => {
+    response.sendFile(path.join(publicDir, 'index.html'));
+  });
+
   app.get('/health', (_request, response) => {
     response.json({ ok: true, service: 'telegram-auto-blog' });
   });

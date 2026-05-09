@@ -3,7 +3,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
-      "includeFiles": "data/posts.json"
+      "includeFiles": "{data/posts.json,public/**}"
     }
   },
   "rewrites": [
