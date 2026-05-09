@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Atualizações StreamCode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css?v=5">
+  </head>
+  <body>
+    <canvas id="particles-js" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <div class="header-shell">
+        <a class="brand" href="https://streamcode.online/" target="_blank" rel="noopener noreferrer">StreamCode</a>
+        <nav class="top-nav" aria-label="Navegação principal">
+          <a href="https://streamcode.online/" target="_blank" rel="noopener noreferrer">Início</a>
+          <a href="https://streamcode.online/iptv.html" target="_blank" rel="noopener noreferrer">IPTV</a>
+          <a href="https://streamcode.online/contato.html" target="_blank" rel="noopener noreferrer">Contato</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-section">
+        <div class="content-shell hero-shell">
+          <div>
+            <p class="eyebrow">Atualizações automáticas</p>
+            <h1>StreamCode Play</h1>
+            <p class="hero-copy">Novidades organizadas por tipo de conteúdo e data, direto do Telegram para a vitrine.</p>
+          </div>
+          <div class="status-panel">
+            <span class="status-label">Publicações</span>
+            <strong id="posts-count">Carregando</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-shell updates-section">
+        <div class="menu-bar" id="category-menu" aria-label="Categorias de conteúdo"></div>
+        <div class="section-meta">
+          <h2 id="active-title">Todos</h2>
+          <span id="active-summary">Aguardando atualizações</span>
+        </div>
+        <div class="date-feed" id="date-feed" aria-live="polite"></div>
+        <p class="empty-state" id="empty-state" hidden>Nenhuma postagem publicada ainda.</p>
+      </section>
+    </main>
+
+    <div class="details-modal" id="details-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <article class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal-close" type="button" data-close-modal aria-label="Fechar">x</button>
+        <div class="modal-hero" id="modal-hero"></div>
+        <div class="modal-body">
+          <div class="modal-poster" id="modal-poster"></div>
+          <div class="modal-content">
+            <span class="post-category" id="modal-category"></span>
+            <h2 id="modal-title"></h2>
+            <p class="modal-meta" id="modal-meta"></p>
+            <p class="modal-overview" id="modal-overview"></p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <script src="/app.js?v=5" defer></script>
+  </body>
+</html>

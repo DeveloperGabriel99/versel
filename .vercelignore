@@ -1,0 +1,8 @@
+.env
+.env.local
+.vercel
+node_modules
+logs
+tools
+public/uploads/telegram
+npm-debug.log*

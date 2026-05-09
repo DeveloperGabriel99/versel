@@ -1,0 +1,25 @@
+{
+  "name": "telegram-auto-blog",
+  "version": "1.0.0",
+  "description": "Blog automatizado que publica cards a partir de mensagens recebidas pelo Telegram.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "telegram:set-webhook": "node scripts/telegram-tools.js register",
+    "telegram:delete-webhook": "node scripts/telegram-tools.js delete",
+    "telegram:webhook-info": "node scripts/telegram-tools.js info",
+    "tmdb:sync-missing": "node scripts/sync-tmdb-metadata.js",
+    "tmdb:sync-all": "node scripts/sync-tmdb-metadata.js --force",
+    "blob:seed-posts": "node scripts/seed-blob-posts.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.3.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

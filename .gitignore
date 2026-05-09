@@ -1,0 +1,10 @@
+node_modules/
+.vercel/
+.env
+.env.local
+data/posts.json
+public/uploads/telegram/
+npm-debug.log*
+.DS_Store
+logs/
+tools/cloudflared.exe
