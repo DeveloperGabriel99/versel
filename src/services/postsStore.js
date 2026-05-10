@@ -55,6 +55,15 @@ function upsertTelegramPostInMemory(posts, postInput) {
     ? normalizeText(existingPost.title) !== normalizeText(postInput.title)
       || normalizeText(existingPost.category) !== normalizeText(postInput.category)
     : true;
+  const hasIncomingTmdbMetadata = Boolean(
+    postInput.tmdbId
+      || postInput.mediaType
+      || postInput.posterPath
+      || postInput.backdropPath
+      || postInput.tmdbTitle
+      || postInput.tmdbSyncedAt
+  );
+  const shouldKeepExistingTmdb = Boolean(existingPost && !contentChanged && !hasIncomingTmdbMetadata);
   const nextPost = {
     id: existingIndex >= 0 ? posts[existingIndex].id : crypto.randomUUID(),
     source: 'telegram',
@@ -65,24 +74,25 @@ function upsertTelegramPostInMemory(posts, postInput) {
     thumbnailUrl: postInput.thumbnailUrl,
     telegramChatId: postInput.telegramChatId,
     telegramMessageId: postInput.telegramMessageId,
-    tmdbId: postInput.tmdbId ?? existingPost?.tmdbId ?? null,
-    mediaType: postInput.mediaType ?? existingPost?.mediaType ?? null,
-    posterPath: postInput.posterPath ?? existingPost?.posterPath ?? null,
-    backdropPath: postInput.backdropPath ?? existingPost?.backdropPath ?? null,
-    tmdbTitle: postInput.tmdbTitle ?? existingPost?.tmdbTitle ?? null,
-    tmdbYear: postInput.tmdbYear ?? existingPost?.tmdbYear ?? null,
-    releaseDate: postInput.releaseDate ?? existingPost?.releaseDate ?? null,
-    genres: postInput.genres ?? existingPost?.genres ?? [],
-    voteAverage: postInput.voteAverage ?? existingPost?.voteAverage ?? null,
-    runtimeMinutes: postInput.runtimeMinutes ?? existingPost?.runtimeMinutes ?? null,
-    seasonsCount: postInput.seasonsCount ?? existingPost?.seasonsCount ?? null,
-    episodesCount: postInput.episodesCount ?? existingPost?.episodesCount ?? null,
-    cast: postInput.cast ?? existingPost?.cast ?? [],
-    trailerUrl: postInput.trailerUrl ?? existingPost?.trailerUrl ?? null,
-    trailerKey: postInput.trailerKey ?? existingPost?.trailerKey ?? null,
-    certification: postInput.certification ?? existingPost?.certification ?? null,
-    overview: postInput.overview ?? existingPost?.overview ?? '',
-    tmdbSyncedAt: postInput.tmdbSyncedAt ?? existingPost?.tmdbSyncedAt ?? null,
+    tmdbId: postInput.tmdbId ?? (shouldKeepExistingTmdb ? existingPost?.tmdbId : null),
+    mediaType: postInput.mediaType ?? (shouldKeepExistingTmdb ? existingPost?.mediaType : null),
+    posterPath: postInput.posterPath ?? (shouldKeepExistingTmdb ? existingPost?.posterPath : null),
+    backdropPath: postInput.backdropPath ?? (shouldKeepExistingTmdb ? existingPost?.backdropPath : null),
+    tmdbTitle: postInput.tmdbTitle ?? (shouldKeepExistingTmdb ? existingPost?.tmdbTitle : null),
+    tmdbYear: postInput.tmdbYear ?? (shouldKeepExistingTmdb ? existingPost?.tmdbYear : null),
+    releaseDate: postInput.releaseDate ?? (shouldKeepExistingTmdb ? existingPost?.releaseDate : null),
+    genres: postInput.genres ?? (shouldKeepExistingTmdb ? existingPost?.genres : []),
+    voteAverage: postInput.voteAverage ?? (shouldKeepExistingTmdb ? existingPost?.voteAverage : null),
+    runtimeMinutes: postInput.runtimeMinutes ?? (shouldKeepExistingTmdb ? existingPost?.runtimeMinutes : null),
+    seasonsCount: postInput.seasonsCount ?? (shouldKeepExistingTmdb ? existingPost?.seasonsCount : null),
+    episodesCount: postInput.episodesCount ?? (shouldKeepExistingTmdb ? existingPost?.episodesCount : null),
+    cast: postInput.cast ?? (shouldKeepExistingTmdb ? existingPost?.cast : []),
+    trailerUrl: postInput.trailerUrl ?? (shouldKeepExistingTmdb ? existingPost?.trailerUrl : null),
+    trailerKey: postInput.trailerKey ?? (shouldKeepExistingTmdb ? existingPost?.trailerKey : null),
+    certification: postInput.certification ?? (shouldKeepExistingTmdb ? existingPost?.certification : null),
+    tmdbLookupStatus: postInput.tmdbLookupStatus ?? (shouldKeepExistingTmdb ? existingPost?.tmdbLookupStatus : null),
+    overview: postInput.overview ?? (shouldKeepExistingTmdb ? existingPost?.overview : ''),
+    tmdbSyncedAt: postInput.tmdbSyncedAt ?? (shouldKeepExistingTmdb ? existingPost?.tmdbSyncedAt : null),
     publishedAt: postInput.publishedAt,
     updatedAt: new Date().toISOString()
   };
@@ -132,6 +142,7 @@ export async function removePostTmdbMetadata(dataFile, postId) {
     trailerUrl: null,
     trailerKey: null,
     certification: null,
+    tmdbLookupStatus: null,
     overview: '',
     tmdbSyncedAt: null,
     updatedAt: new Date().toISOString()

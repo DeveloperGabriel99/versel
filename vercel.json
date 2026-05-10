@@ -2,10 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/index.js": {
-      "maxDuration": 30,
+      "maxDuration": 300,
       "includeFiles": "{data/posts.json,public/**}"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/tmdb-sync",
+      "schedule": "0 8 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

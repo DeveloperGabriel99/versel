@@ -7,11 +7,12 @@ import { extractTelegramMessage, parseTelegramPosts } from './services/telegramP
 import {
   getPostById,
   listPosts,
+  replacePosts,
   removePostTmdbMetadata,
   updatePostTmdbMetadata,
   upsertTelegramPosts
 } from './services/postsStore.js';
-import { syncTmdbMetadata } from './services/tmdbService.js';
+import { inferMediaTypeFromCategory, syncTmdbMetadata } from './services/tmdbService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -21,7 +22,10 @@ const dataFile = resolveDataFile(process.env.POSTS_DATA_FILE, rootDir);
 const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+const cronSecret = process.env.CRON_SECRET?.trim();
 const inlineTmdbLimit = Number(process.env.INLINE_TMDB_LIMIT ?? 60);
+const tmdbCronBatchSize = getPositiveInteger(process.env.TMDB_CRON_BATCH_SIZE, 1000);
+const tmdbCronConcurrency = getPositiveInteger(process.env.TMDB_CRON_CONCURRENCY, 8);
 
 export function createApp() {
   const app = express();
@@ -48,6 +52,22 @@ export function createApp() {
 
   app.get('/favicon.ico', (_request, response) => {
     response.status(204).end();
+  });
+
+  app.get('/api/cron/tmdb-sync', async (request, response, next) => {
+    try {
+      if (!requireCronAccess(request, response)) {
+        return;
+      }
+
+      response.set('Cache-Control', 'no-store, max-age=0');
+      response.json({
+        ok: true,
+        ...(await syncMissingTmdbBatch())
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post('/api/posts/:id/tmdb/refresh', async (request, response, next) => {
@@ -224,6 +244,130 @@ function requireAdminAccess(request, response) {
   }
 
   return true;
+}
+
+function requireCronAccess(request, response) {
+  if (!cronSecret) {
+    response.status(404).json({ ok: false, error: 'not_found' });
+    return false;
+  }
+
+  const authHeader = request.header('authorization') ?? '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const receivedSecret = request.header('x-cron-secret') ?? bearerToken;
+
+  if (receivedSecret !== cronSecret) {
+    response.status(403).json({ ok: false, error: 'forbidden' });
+    return false;
+  }
+
+  return true;
+}
+
+async function syncMissingTmdbBatch() {
+  const posts = await listPosts(dataFile);
+  const candidates = posts
+    .filter(needsTmdbSync)
+    .slice(0, tmdbCronBatchSize);
+
+  if (candidates.length === 0) {
+    return {
+      checked: 0,
+      updated: 0,
+      notFound: 0,
+      remaining: 0
+    };
+  }
+
+  let updated = 0;
+  let notFound = 0;
+
+  const results = await mapWithConcurrency(candidates, tmdbCronConcurrency, async (post) => {
+    const metadata = await syncTmdbMetadata({
+      title: post.title,
+      category: post.category,
+      mediaType: post.mediaType,
+      tmdbId: post.tmdbId
+    });
+
+    if (!metadata) {
+      notFound += 1;
+      return {
+        id: post.id,
+        metadata: null
+      };
+    }
+
+    updated += 1;
+    return {
+      id: post.id,
+      metadata
+    };
+  });
+
+  const syncedAt = new Date().toISOString();
+  const updatesById = new Map(results.map((result) => [result.id, result]));
+  const nextPosts = posts.map((post) => {
+    const result = updatesById.get(post.id);
+
+    if (!result) {
+      return post;
+    }
+
+    if (!result.metadata) {
+      return {
+        ...post,
+        tmdbLookupStatus: 'not_found',
+        tmdbSyncedAt: syncedAt,
+        updatedAt: syncedAt
+      };
+    }
+
+    return {
+      ...post,
+      ...result.metadata,
+      tmdbLookupStatus: 'found',
+      updatedAt: syncedAt
+    };
+  });
+
+  await replacePosts(dataFile, nextPosts);
+
+  return {
+    checked: candidates.length,
+    updated,
+    notFound,
+    remaining: nextPosts.filter(needsTmdbSync).length
+  };
+}
+
+function needsTmdbSync(post) {
+  if (post.tmdbLookupStatus === 'not_found' && post.tmdbSyncedAt) {
+    return false;
+  }
+
+  if (!post.tmdbId && !post.posterPath) return true;
+  if (!post.releaseDate) return true;
+  if (!Array.isArray(post.genres) || post.genres.length === 0) return true;
+  if (post.voteAverage == null) return true;
+  if (!Array.isArray(post.cast) || post.cast.length === 0) return true;
+
+  const mediaType = post.mediaType ?? inferMediaTypeFromCategory(post.category);
+
+  if (mediaType === 'movie' && !post.runtimeMinutes) return true;
+  if (mediaType === 'tv' && (!post.seasonsCount || !post.episodesCount)) return true;
+
+  return false;
+}
+
+function getPositiveInteger(value, fallback) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
 }
 
 async function mapWithConcurrency(items, concurrency, mapper) {
