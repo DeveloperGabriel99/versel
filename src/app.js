@@ -21,6 +21,7 @@ const dataFile = resolveDataFile(process.env.POSTS_DATA_FILE, rootDir);
 const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+const inlineTmdbLimit = Number(process.env.INLINE_TMDB_LIMIT ?? 60);
 
 export function createApp() {
   const app = express();
@@ -142,10 +143,12 @@ export function createApp() {
       });
 
       const postInputs = await mapWithConcurrency(parsedPosts.posts, 10, async (parsedPost, index) => {
-        const metadata = await syncTmdbMetadata({
-          title: parsedPost.title,
-          category: parsedPost.category
-        });
+        const metadata = parsedPosts.posts.length <= inlineTmdbLimit
+          ? await syncTmdbMetadata({
+            title: parsedPost.title,
+            category: parsedPost.category
+          })
+          : null;
 
         return {
           title: parsedPost.title,

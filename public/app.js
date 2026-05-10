@@ -13,6 +13,7 @@ const modalCategory = document.querySelector('#modal-category');
 const modalTitle = document.querySelector('#modal-title');
 const modalMeta = document.querySelector('#modal-meta');
 const modalOverview = document.querySelector('#modal-overview');
+const modalContent = document.querySelector('.modal-content');
 
 const CATEGORY_MENUS = [
   { id: 'todos', label: 'Todos' },
@@ -175,6 +176,10 @@ function createPostCard(post) {
   const title = document.createElement('h2');
   title.textContent = post.tmdbTitle || post.title;
 
+  const cardMeta = document.createElement('p');
+  cardMeta.className = 'post-extra-meta';
+  cardMeta.textContent = buildCardMetaText(post);
+
   const description = document.createElement('p');
   description.className = 'post-description';
   description.textContent = getOverviewText(post, 128);
@@ -189,7 +194,7 @@ function createPostCard(post) {
   moreButton.addEventListener('click', () => openPostModal(post.id));
 
   actions.appendChild(moreButton);
-  content.append(category, title, description, actions);
+  content.append(category, title, cardMeta, description, actions);
   card.appendChild(content);
 
   return card;
@@ -260,6 +265,8 @@ function openPostModal(postId) {
   modalTitle.textContent = post.tmdbTitle || post.title;
   modalMeta.textContent = buildMetaText(post);
   modalOverview.textContent = getOverviewText(post, 900);
+  modalContent.querySelectorAll('.modal-extra').forEach((element) => element.remove());
+  modalContent.appendChild(createModalExtras(post));
   modalHero.style.backgroundImage = getBackdropUrl(post)
     ? `linear-gradient(180deg, rgba(1, 12, 54, 0.18), rgba(1, 12, 54, 0.9)), url("${getBackdropUrl(post)}")`
     : '';
@@ -303,11 +310,134 @@ function getOverviewText(post, maxLength) {
 
 function buildMetaText(post) {
   const parts = [
+    post.mediaType === 'movie' ? 'Filme' : post.mediaType === 'tv' ? 'Série/TV' : '',
     post.tmdbYear ? String(post.tmdbYear) : '',
-    post.mediaType === 'movie' ? 'Filme' : post.mediaType === 'tv' ? 'Série/TV' : ''
+    formatRuntime(post.runtimeMinutes),
+    formatSeriesSize(post),
+    formatVote(post.voteAverage)
   ].filter(Boolean);
 
   return parts.length > 0 ? parts.join(' • ') : 'Conteúdo do servidor';
+}
+
+function buildCardMetaText(post) {
+  const parts = [
+    post.tmdbYear ? String(post.tmdbYear) : '',
+    Array.isArray(post.genres) ? post.genres.slice(0, 2).join(' / ') : '',
+    formatVote(post.voteAverage)
+  ].filter(Boolean);
+
+  return parts.join(' • ') || 'Atualização do servidor';
+}
+
+function createModalExtras(post) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'modal-extra';
+
+  const facts = [
+    ['Estreia', formatDate(post.releaseDate)],
+    ['Gêneros', Array.isArray(post.genres) ? post.genres.join(', ') : ''],
+    ['Nota', formatVote(post.voteAverage)],
+    ['Duração', formatRuntime(post.runtimeMinutes)],
+    ['Temporadas', post.seasonsCount ? String(post.seasonsCount) : ''],
+    ['Episódios', post.episodesCount ? String(post.episodesCount) : ''],
+    ['Classificação', post.certification || '']
+  ].filter(([, value]) => value);
+
+  if (facts.length > 0) {
+    const factsGrid = document.createElement('div');
+    factsGrid.className = 'modal-facts';
+
+    for (const [label, value] of facts) {
+      const item = document.createElement('div');
+      item.className = 'modal-fact';
+
+      const itemLabel = document.createElement('span');
+      itemLabel.textContent = label;
+
+      const itemValue = document.createElement('strong');
+      itemValue.textContent = value;
+
+      item.append(itemLabel, itemValue);
+      factsGrid.appendChild(item);
+    }
+
+    wrapper.appendChild(factsGrid);
+  }
+
+  if (Array.isArray(post.cast) && post.cast.length > 0) {
+    const title = document.createElement('h3');
+    title.className = 'modal-section-title';
+    title.textContent = 'Elenco principal';
+
+    const cast = document.createElement('p');
+    cast.className = 'cast-list';
+    cast.textContent = post.cast
+      .slice(0, 8)
+      .map((person) => person.character ? `${person.name} (${person.character})` : person.name)
+      .join(', ');
+
+    wrapper.append(title, cast);
+  }
+
+  if (post.trailerUrl) {
+    const trailer = document.createElement('a');
+    trailer.className = 'trailer-link';
+    trailer.href = post.trailerUrl;
+    trailer.target = '_blank';
+    trailer.rel = 'noopener noreferrer';
+    trailer.textContent = 'Ver trailer';
+    wrapper.appendChild(trailer);
+  }
+
+  return wrapper;
+}
+
+function formatRuntime(minutes) {
+  if (!minutes || Number.isNaN(Number(minutes))) {
+    return '';
+  }
+
+  const totalMinutes = Number(minutes);
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+
+  if (!hours) {
+    return `${remainingMinutes}min`;
+  }
+
+  return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
+}
+
+function formatSeriesSize(post) {
+  const parts = [
+    post.seasonsCount ? `${post.seasonsCount} temp.` : '',
+    post.episodesCount ? `${post.episodesCount} eps.` : ''
+  ].filter(Boolean);
+
+  return parts.join(' / ');
+}
+
+function formatVote(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '';
+  }
+
+  return `★ ${Number(value).toFixed(1)}`;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const [year, month, day] = String(value).split('-');
+
+  if (!year || !month || !day) {
+    return String(value);
+  }
+
+  return `${day}/${month}/${year}`;
 }
 
 function getInitials(title) {

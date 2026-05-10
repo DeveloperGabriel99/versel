@@ -112,7 +112,12 @@ async function searchBestMatch({ title, year, preferredMediaType }) {
     return null;
   }
 
-  return buildMetadata(bestCandidate);
+  const detailedMetadata = await getDetailsById({
+    tmdbId: bestCandidate.id,
+    mediaType: bestCandidate.media_type
+  });
+
+  return detailedMetadata ?? buildMetadata(bestCandidate);
 }
 
 async function getDetailsById({ tmdbId, mediaType }) {
@@ -124,7 +129,11 @@ async function getDetailsById({ tmdbId, mediaType }) {
   }
 
   const payload = await tmdbRequest(`/${safeMediaType}/${safeId}`, {
-    language: 'pt-BR'
+    language: 'pt-BR',
+    append_to_response: safeMediaType === 'movie'
+      ? 'credits,videos,release_dates'
+      : 'credits,videos,content_ratings',
+    include_video_language: 'pt-BR,en-US,null'
   });
 
   return buildMetadata({
@@ -214,6 +223,16 @@ function buildMetadata(candidate) {
     backdropPath: candidate.backdrop_path ?? null,
     tmdbTitle: getPrimaryTitle(candidate),
     tmdbYear: getCandidateYear(candidate),
+    releaseDate: getReleaseDate(candidate),
+    genres: getGenres(candidate),
+    voteAverage: getVoteAverage(candidate),
+    runtimeMinutes: getRuntimeMinutes(candidate),
+    seasonsCount: getSeasonsCount(candidate),
+    episodesCount: getEpisodesCount(candidate),
+    cast: getCast(candidate),
+    trailerUrl: getTrailerUrl(candidate),
+    trailerKey: getTrailer(candidate)?.key ?? null,
+    certification: getCertification(candidate),
     overview: candidate.overview ?? '',
     tmdbSyncedAt: new Date().toISOString()
   };
@@ -233,10 +252,149 @@ function getPrimaryTitle(candidate) {
 }
 
 function getCandidateYear(candidate) {
-  const date = candidate.release_date ?? candidate.first_air_date ?? '';
+  const date = getReleaseDate(candidate);
   const match = String(date).match(/^(\d{4})/);
 
   return match ? Number(match[1]) : null;
+}
+
+function getReleaseDate(candidate) {
+  return candidate.release_date ?? candidate.first_air_date ?? null;
+}
+
+function getGenres(candidate) {
+  if (!Array.isArray(candidate.genres)) {
+    return [];
+  }
+
+  return candidate.genres
+    .map((genre) => genre?.name)
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function getVoteAverage(candidate) {
+  if (typeof candidate.vote_average !== 'number' || candidate.vote_average <= 0) {
+    return null;
+  }
+
+  return Math.round(candidate.vote_average * 10) / 10;
+}
+
+function getRuntimeMinutes(candidate) {
+  if (candidate.media_type !== 'movie' || typeof candidate.runtime !== 'number' || candidate.runtime <= 0) {
+    return null;
+  }
+
+  return candidate.runtime;
+}
+
+function getSeasonsCount(candidate) {
+  if (candidate.media_type !== 'tv' || typeof candidate.number_of_seasons !== 'number') {
+    return null;
+  }
+
+  return candidate.number_of_seasons > 0 ? candidate.number_of_seasons : null;
+}
+
+function getEpisodesCount(candidate) {
+  if (candidate.media_type !== 'tv' || typeof candidate.number_of_episodes !== 'number') {
+    return null;
+  }
+
+  return candidate.number_of_episodes > 0 ? candidate.number_of_episodes : null;
+}
+
+function getCast(candidate) {
+  const cast = candidate.credits?.cast;
+
+  if (!Array.isArray(cast)) {
+    return [];
+  }
+
+  return cast
+    .filter((person) => person?.name)
+    .sort((first, second) => (first.order ?? 999) - (second.order ?? 999))
+    .slice(0, 8)
+    .map((person) => ({
+      name: person.name,
+      character: person.character || ''
+    }));
+}
+
+function getTrailerUrl(candidate) {
+  const trailer = getTrailer(candidate);
+
+  if (!trailer?.key) {
+    return null;
+  }
+
+  if (trailer.site === 'YouTube') {
+    return `https://www.youtube.com/watch?v=${trailer.key}`;
+  }
+
+  return null;
+}
+
+function getTrailer(candidate) {
+  const videos = candidate.videos?.results;
+
+  if (!Array.isArray(videos)) {
+    return null;
+  }
+
+  return videos
+    .filter((video) => video?.site === 'YouTube' && video?.key)
+    .sort((first, second) => scoreTrailer(second) - scoreTrailer(first))[0] ?? null;
+}
+
+function scoreTrailer(video) {
+  let score = 0;
+
+  if (video.type === 'Trailer') score += 5;
+  if (video.official) score += 3;
+  if (video.iso_639_1 === 'pt') score += 2;
+  if (video.iso_3166_1 === 'BR') score += 2;
+  if (video.type === 'Teaser') score += 1;
+
+  return score;
+}
+
+function getCertification(candidate) {
+  if (candidate.media_type === 'movie') {
+    return getMovieCertification(candidate.release_dates);
+  }
+
+  if (candidate.media_type === 'tv') {
+    return getTvCertification(candidate.content_ratings);
+  }
+
+  return null;
+}
+
+function getMovieCertification(releaseDates) {
+  const results = releaseDates?.results;
+
+  if (!Array.isArray(results)) {
+    return null;
+  }
+
+  return ['BR', 'US']
+    .map((country) => results.find((item) => item.iso_3166_1 === country))
+    .map((item) => item?.release_dates?.find((release) => release.certification)?.certification)
+    .find(Boolean) ?? null;
+}
+
+function getTvCertification(contentRatings) {
+  const results = contentRatings?.results;
+
+  if (!Array.isArray(results)) {
+    return null;
+  }
+
+  return ['BR', 'US']
+    .map((country) => results.find((item) => item.iso_3166_1 === country)?.rating)
+    .find(Boolean) ?? null;
 }
 
 function compareTitles(firstTitle, secondTitle) {

@@ -29,6 +29,10 @@ export async function upsertTelegramPosts(dataFile, postInputs) {
   return results;
 }
 
+export async function replacePosts(dataFile, posts) {
+  await writePosts(dataFile, posts);
+}
+
 function upsertTelegramPostInMemory(posts, postInput) {
   const sourceKey = postInput.sourceKey ?? `${postInput.telegramChatId}:${postInput.telegramMessageId}`;
   const existingIndex = posts.findIndex((post) => {
@@ -67,6 +71,16 @@ function upsertTelegramPostInMemory(posts, postInput) {
     backdropPath: postInput.backdropPath ?? existingPost?.backdropPath ?? null,
     tmdbTitle: postInput.tmdbTitle ?? existingPost?.tmdbTitle ?? null,
     tmdbYear: postInput.tmdbYear ?? existingPost?.tmdbYear ?? null,
+    releaseDate: postInput.releaseDate ?? existingPost?.releaseDate ?? null,
+    genres: postInput.genres ?? existingPost?.genres ?? [],
+    voteAverage: postInput.voteAverage ?? existingPost?.voteAverage ?? null,
+    runtimeMinutes: postInput.runtimeMinutes ?? existingPost?.runtimeMinutes ?? null,
+    seasonsCount: postInput.seasonsCount ?? existingPost?.seasonsCount ?? null,
+    episodesCount: postInput.episodesCount ?? existingPost?.episodesCount ?? null,
+    cast: postInput.cast ?? existingPost?.cast ?? [],
+    trailerUrl: postInput.trailerUrl ?? existingPost?.trailerUrl ?? null,
+    trailerKey: postInput.trailerKey ?? existingPost?.trailerKey ?? null,
+    certification: postInput.certification ?? existingPost?.certification ?? null,
     overview: postInput.overview ?? existingPost?.overview ?? '',
     tmdbSyncedAt: postInput.tmdbSyncedAt ?? existingPost?.tmdbSyncedAt ?? null,
     publishedAt: postInput.publishedAt,
@@ -108,6 +122,16 @@ export async function removePostTmdbMetadata(dataFile, postId) {
     backdropPath: null,
     tmdbTitle: null,
     tmdbYear: null,
+    releaseDate: null,
+    genres: [],
+    voteAverage: null,
+    runtimeMinutes: null,
+    seasonsCount: null,
+    episodesCount: null,
+    cast: [],
+    trailerUrl: null,
+    trailerKey: null,
+    certification: null,
     overview: '',
     tmdbSyncedAt: null,
     updatedAt: new Date().toISOString()
