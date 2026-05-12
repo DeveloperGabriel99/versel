@@ -93,16 +93,37 @@ function parsePriceLine(line) {
   }
 
   const name = match[1].replace(/:\s*$/, '').trim();
-  const priceText = `R$ ${match[2]}`;
-  const price = Number(match[2].replace(/\./g, '').replace(',', '.'));
+  const rawPrice = Number(match[2].replace(/\./g, '').replace(',', '.'));
+  const price = normalizeDisplayPrice(rawPrice);
 
   return {
     name,
     normalizedName: normalizeForMatch(name),
     tokens: tokenize(name),
-    price: Number.isFinite(price) ? price : null,
-    priceText
+    price,
+    priceText: price == null ? 'Consultar valor' : formatCurrency(price)
   };
+}
+
+function normalizeDisplayPrice(price) {
+  if (!Number.isFinite(price)) {
+    return null;
+  }
+
+  const cents = Math.round((price - Math.trunc(price)) * 100);
+
+  if (cents === 90) {
+    return Number(price.toFixed(2));
+  }
+
+  return Number(Math.max(0, Math.trunc(price) - 0.1).toFixed(2));
+}
+
+function formatCurrency(price) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(price);
 }
 
 function findPriceMatch(productName, prices) {

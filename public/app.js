@@ -296,13 +296,24 @@ function createStoreProductCard(product) {
   const title = document.createElement('h3');
   title.textContent = product.name;
 
+  const price = document.createElement('p');
+  price.className = 'store-card-price';
+
+  const priceLabel = document.createElement('span');
+  priceLabel.textContent = 'Valor';
+
+  const priceValue = document.createElement('strong');
+  priceValue.textContent = product.priceText || 'Consultar valor';
+
+  price.append(priceLabel, priceValue);
+
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'btn-action';
-  action.textContent = 'Ver valor';
+  action.textContent = 'Ver detalhes';
   action.addEventListener('click', () => openStoreModal(product.id));
 
-  content.append(category, title, action);
+  content.append(category, title, price, action);
   card.append(image, content);
   return card;
 }

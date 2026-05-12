@@ -577,6 +577,30 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.store-card-price {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(6, 236, 252, 0.2);
+  border-radius: 6px;
+  background: rgba(6, 236, 252, 0.08);
+}
+
+.store-card-price span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.store-card-price strong {
+  color: var(--accent-cyan-1);
+  font-size: 1.1rem;
+  line-height: 1.2;
+  text-shadow: 0 0 10px rgba(6, 236, 252, 0.62);
+}
+
 .store-modal-panel {
   width: min(940px, 100%);
   overflow: hidden;
