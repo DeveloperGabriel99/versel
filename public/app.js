@@ -1,4 +1,6 @@
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+const STORE_WHATSAPP_NUMBER = '5511983370949';
+const CART_STORAGE_KEY = 'streamcode-store-cart';
 
 const categoryMenu = document.querySelector('#category-menu');
 const dateFeed = document.querySelector('#date-feed');
@@ -27,6 +29,20 @@ const storeModalCategory = document.querySelector('#store-modal-category');
 const storeModalTitle = document.querySelector('#store-modal-title');
 const storeModalDescription = document.querySelector('#store-modal-description');
 const storeModalPrice = document.querySelector('#store-modal-price');
+const storeModalQuantity = document.querySelector('#store-modal-quantity');
+const storeQuantityMinus = document.querySelector('#store-quantity-minus');
+const storeQuantityPlus = document.querySelector('#store-quantity-plus');
+const storeAddCartButton = document.querySelector('#store-add-cart-button');
+const storeBuyNowButton = document.querySelector('#store-buy-now-button');
+const storeFeedback = document.querySelector('#store-feedback');
+const storeCartSummary = document.querySelector('#store-cart-summary');
+const openCartButton = document.querySelector('#open-cart-button');
+const cartCheckoutButton = document.querySelector('#cart-checkout-button');
+const cartModal = document.querySelector('#cart-modal');
+const cartItems = document.querySelector('#cart-items');
+const cartModalSummary = document.querySelector('#cart-modal-summary');
+const cartTotal = document.querySelector('#cart-total');
+const cartFinalButton = document.querySelector('#cart-final-button');
 
 const CATEGORY_MENUS = [
   { id: 'todos', label: 'Todos' },
@@ -46,12 +62,16 @@ let activeView = window.location.hash === '#loja' ? 'store' : 'updates';
 let activeStoreCategory = 'todos';
 let storeCategories = [];
 let storeProducts = [];
+let selectedStoreProduct = null;
+let cart = readCart();
 
 renderCategoryMenu([]);
 renderStoreCategoryMenu([]);
 renderActiveView();
 bindViewEvents();
 bindModalEvents();
+bindStoreEvents();
+renderCart();
 loadPosts();
 loadStoreProducts();
 setInterval(loadPosts, 15000);
@@ -91,7 +111,9 @@ async function loadStoreProducts() {
     const { categories } = await response.json();
     storeCategories = Array.isArray(categories) ? categories : [];
     storeProducts = storeCategories.flatMap((category) => category.products ?? []);
+    syncCartWithProducts();
     renderStore();
+    renderCart();
   } catch (error) {
     storeFeed.innerHTML = '';
     storeEmptyState.hidden = false;
@@ -480,12 +502,16 @@ function openStoreModal(productId) {
     return;
   }
 
+  selectedStoreProduct = product;
   storeModalImage.src = product.imageUrl;
   storeModalImage.alt = product.name;
   storeModalCategory.textContent = product.category;
   storeModalTitle.textContent = product.name;
-  storeModalDescription.textContent = `Produto da categoria ${product.category}. Clique em fechar para voltar à loja.`;
+  storeModalDescription.textContent = `Produto da categoria ${product.category}. Escolha a quantidade e finalize pelo WhatsApp.`;
   storeModalPrice.textContent = product.priceText || 'Consultar valor';
+  storeModalQuantity.value = '1';
+  storeFeedback.textContent = '';
+  updateBuyNowLink();
   storeModal.hidden = false;
   document.body.classList.add('modal-open');
 }
@@ -493,6 +519,18 @@ function openStoreModal(productId) {
 function closeStoreModal() {
   storeModal.hidden = true;
   storeModalImage.removeAttribute('src');
+  selectedStoreProduct = null;
+  document.body.classList.remove('modal-open');
+}
+
+function openCartModal() {
+  renderCartModal();
+  cartModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeCartModal() {
+  cartModal.hidden = true;
   document.body.classList.remove('modal-open');
 }
 
@@ -512,6 +550,37 @@ function bindViewEvents() {
 
   window.addEventListener('hashchange', () => {
     setActiveView(window.location.hash === '#loja' ? 'store' : 'updates', { updateHash: false });
+  });
+}
+
+function bindStoreEvents() {
+  storeQuantityMinus.addEventListener('click', () => {
+    setSelectedQuantity(getSelectedQuantity() - 1);
+  });
+
+  storeQuantityPlus.addEventListener('click', () => {
+    setSelectedQuantity(getSelectedQuantity() + 1);
+  });
+
+  storeModalQuantity.addEventListener('input', () => {
+    setSelectedQuantity(getSelectedQuantity(), { quiet: true });
+  });
+
+  storeAddCartButton.addEventListener('click', () => {
+    if (!selectedStoreProduct) {
+      return;
+    }
+
+    addToCart(selectedStoreProduct, getSelectedQuantity());
+    storeFeedback.textContent = 'Produto adicionado ao carrinho.';
+  });
+
+  openCartButton.addEventListener('click', openCartModal);
+  cartCheckoutButton.addEventListener('click', (event) => {
+    if (cart.length === 0) {
+      event.preventDefault();
+      openCartModal();
+    }
   });
 }
 
@@ -545,6 +614,10 @@ function bindModalEvents() {
     element.addEventListener('click', closeStoreModal);
   });
 
+  document.querySelectorAll('[data-close-cart-modal]').forEach((element) => {
+    element.addEventListener('click', closeCartModal);
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !detailsModal.hidden) {
       closePostModal();
@@ -553,8 +626,310 @@ function bindModalEvents() {
     if (event.key === 'Escape' && !storeModal.hidden) {
       closeStoreModal();
     }
+
+    if (event.key === 'Escape' && !cartModal.hidden) {
+      closeCartModal();
+    }
   });
 
+}
+
+function getSelectedQuantity() {
+  const quantity = Number(storeModalQuantity.value);
+
+  if (!Number.isFinite(quantity)) {
+    return 1;
+  }
+
+  return Math.min(99, Math.max(1, Math.floor(quantity)));
+}
+
+function setSelectedQuantity(quantity, options = {}) {
+  const nextQuantity = Math.min(99, Math.max(1, Math.floor(Number(quantity) || 1)));
+  storeModalQuantity.value = String(nextQuantity);
+  updateBuyNowLink();
+
+  if (!options.quiet) {
+    storeFeedback.textContent = '';
+  }
+}
+
+function addToCart(product, quantity) {
+  const safeQuantity = Math.min(99, Math.max(1, Math.floor(Number(quantity) || 1)));
+  const existing = cart.find((item) => item.id === product.id);
+
+  if (existing) {
+    existing.quantity = Math.min(99, existing.quantity + safeQuantity);
+  } else {
+    cart.push({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      priceText: product.priceText,
+      imageUrl: product.imageUrl,
+      quantity: safeQuantity
+    });
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function updateCartQuantity(productId, quantity) {
+  const item = cart.find((cartItem) => cartItem.id === productId);
+
+  if (!item) {
+    return;
+  }
+
+  item.quantity = Math.min(99, Math.max(1, Math.floor(Number(quantity) || 1)));
+  saveCart();
+  renderCart();
+  renderCartModal();
+}
+
+function removeCartItem(productId) {
+  cart = cart.filter((item) => item.id !== productId);
+  saveCart();
+  renderCart();
+  renderCartModal();
+}
+
+function renderCart() {
+  const { quantity, total } = getCartTotals();
+  const hasItems = quantity > 0;
+  const summary = hasItems
+    ? `${quantity} ${quantity === 1 ? 'item' : 'itens'} - ${formatStoreMoney(total)}`
+    : 'Nenhum produto adicionado';
+
+  storeCartSummary.textContent = summary;
+  cartCheckoutButton.href = hasItems ? getWhatsAppUrl(buildCartMessage()) : '#';
+  cartCheckoutButton.setAttribute('aria-disabled', String(!hasItems));
+  openCartButton.textContent = hasItems ? `Ver carrinho (${quantity})` : 'Ver carrinho';
+}
+
+function renderCartModal() {
+  cartItems.innerHTML = '';
+
+  if (cart.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state cart-empty-state';
+    empty.textContent = 'Seu carrinho está vazio.';
+    cartItems.appendChild(empty);
+    cartModalSummary.textContent = 'Adicione produtos da loja para finalizar pelo WhatsApp.';
+    cartTotal.textContent = formatStoreMoney(0);
+    cartFinalButton.href = '#';
+    cartFinalButton.setAttribute('aria-disabled', 'true');
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of cart) {
+    fragment.appendChild(createCartItemElement(item));
+  }
+
+  const { quantity, total } = getCartTotals();
+  cartItems.appendChild(fragment);
+  cartModalSummary.textContent = `${quantity} ${quantity === 1 ? 'item selecionado' : 'itens selecionados'}.`;
+  cartTotal.textContent = formatStoreMoney(total);
+  cartFinalButton.href = getWhatsAppUrl(buildCartMessage());
+  cartFinalButton.setAttribute('aria-disabled', 'false');
+}
+
+function createCartItemElement(item) {
+  const row = document.createElement('article');
+  row.className = 'cart-item';
+
+  const image = document.createElement('img');
+  image.src = item.imageUrl;
+  image.alt = item.name;
+  image.loading = 'lazy';
+
+  const content = document.createElement('div');
+  content.className = 'cart-item-content';
+
+  const category = document.createElement('span');
+  category.textContent = item.category;
+
+  const title = document.createElement('h3');
+  title.textContent = item.name;
+
+  const price = document.createElement('p');
+  price.textContent = `${item.quantity} x ${item.priceText || formatStoreMoney(item.price)} = ${formatStoreMoney(getCartItemSubtotal(item))}`;
+
+  content.append(category, title, price);
+
+  const controls = document.createElement('div');
+  controls.className = 'cart-item-controls';
+
+  const minus = document.createElement('button');
+  minus.type = 'button';
+  minus.textContent = '-';
+  minus.setAttribute('aria-label', `Diminuir quantidade de ${item.name}`);
+  minus.addEventListener('click', () => updateCartQuantity(item.id, item.quantity - 1));
+
+  const quantity = document.createElement('input');
+  quantity.type = 'number';
+  quantity.min = '1';
+  quantity.max = '99';
+  quantity.value = String(item.quantity);
+  quantity.addEventListener('input', () => updateCartQuantity(item.id, quantity.value));
+
+  const plus = document.createElement('button');
+  plus.type = 'button';
+  plus.textContent = '+';
+  plus.setAttribute('aria-label', `Aumentar quantidade de ${item.name}`);
+  plus.addEventListener('click', () => updateCartQuantity(item.id, item.quantity + 1));
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'cart-remove';
+  remove.textContent = 'Remover';
+  remove.addEventListener('click', () => removeCartItem(item.id));
+
+  controls.append(minus, quantity, plus, remove);
+  row.append(image, content, controls);
+  return row;
+}
+
+function updateBuyNowLink() {
+  if (!selectedStoreProduct) {
+    storeBuyNowButton.href = '#';
+    return;
+  }
+
+  storeBuyNowButton.href = getWhatsAppUrl(buildProductMessage(selectedStoreProduct, getSelectedQuantity()));
+}
+
+function buildProductMessage(product, quantity) {
+  const total = Number(product.price) * quantity;
+
+  return [
+    'Olá, vim pela Loja StreamCode e quero comprar este produto:',
+    '',
+    `Produto: ${product.name}`,
+    `Categoria: ${product.category}`,
+    `Quantidade: ${quantity}`,
+    `Valor unitário: ${product.priceText || formatStoreMoney(product.price)}`,
+    `Total: ${formatStoreMoney(total)}`
+  ].join('\n');
+}
+
+function buildCartMessage() {
+  const { total } = getCartTotals();
+  const lines = [
+    'Olá, vim pela Loja StreamCode e quero finalizar este pedido:',
+    ''
+  ];
+
+  cart.forEach((item, index) => {
+    lines.push(
+      `${index + 1}. ${item.name}`,
+      `Categoria: ${item.category}`,
+      `Quantidade: ${item.quantity}`,
+      `Valor unitário: ${item.priceText || formatStoreMoney(item.price)}`,
+      `Subtotal: ${formatStoreMoney(getCartItemSubtotal(item))}`,
+      ''
+    );
+  });
+
+  lines.push(`Total do pedido: ${formatStoreMoney(total)}`);
+  return lines.join('\n');
+}
+
+function getWhatsAppUrl(message) {
+  return `https://api.whatsapp.com/send?phone=${STORE_WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+}
+
+function getCartTotals() {
+  return cart.reduce((totals, item) => ({
+    quantity: totals.quantity + item.quantity,
+    total: totals.total + getCartItemSubtotal(item)
+  }), { quantity: 0, total: 0 });
+}
+
+function getCartItemSubtotal(item) {
+  const price = Number(item.price);
+
+  if (!Number.isFinite(price)) {
+    return 0;
+  }
+
+  return price * item.quantity;
+}
+
+function formatStoreMoney(value) {
+  const amount = Number(value);
+
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(Number.isFinite(amount) ? amount : 0);
+}
+
+function saveCart() {
+  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+}
+
+function readCart() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+
+    return Array.isArray(parsed)
+      ? parsed
+        .filter((item) => item?.id && item?.name)
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category ?? 'Produto',
+          price: Number(item.price) || 0,
+          priceText: item.priceText || formatStoreMoney(item.price),
+          imageUrl: item.imageUrl ?? '',
+          quantity: Math.min(99, Math.max(1, Math.floor(Number(item.quantity) || 1)))
+        }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function syncCartWithProducts() {
+  let changed = false;
+  cart = cart
+    .map((item) => {
+      const product = storeProducts.find((storeProduct) => storeProduct.id === item.id);
+
+      if (!product) {
+        changed = true;
+        return null;
+      }
+
+      if (
+        item.name !== product.name
+        || item.category !== product.category
+        || item.price !== product.price
+        || item.priceText !== product.priceText
+        || item.imageUrl !== product.imageUrl
+      ) {
+        changed = true;
+      }
+
+      return {
+        ...item,
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        priceText: product.priceText,
+        imageUrl: product.imageUrl
+      };
+    })
+    .filter(Boolean);
+
+  if (changed) {
+    saveCart();
+  }
 }
 
 function getOverviewText(post, maxLength) {

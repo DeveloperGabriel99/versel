@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=9">
+    <link rel="stylesheet" href="/styles.css?v=10">
   </head>
   <body>
     <canvas id="particles-js" aria-hidden="true"></canvas>
@@ -63,6 +63,16 @@
           </div>
         </div>
         <div class="menu-bar store-menu" id="store-category-menu" aria-label="Categorias da loja"></div>
+        <div class="store-cart-bar" id="store-cart-bar">
+          <div>
+            <span>Carrinho</span>
+            <strong id="store-cart-summary">Nenhum produto adicionado</strong>
+          </div>
+          <div class="store-cart-actions">
+            <button class="btn-secondary" id="open-cart-button" type="button">Ver carrinho</button>
+            <a class="btn-action" id="cart-checkout-button" href="#" target="_blank" rel="noopener noreferrer">Comprar</a>
+          </div>
+        </div>
         <div class="store-feed" id="store-feed" aria-live="polite"></div>
         <p class="empty-state" id="store-empty-state" hidden>Nenhum produto cadastrado ainda.</p>
       </section>
@@ -101,11 +111,44 @@
               <span>Valor</span>
               <strong id="store-modal-price"></strong>
             </div>
+            <div class="store-quantity-box">
+              <span>Quantidade</span>
+              <div class="quantity-control">
+                <button type="button" id="store-quantity-minus" aria-label="Diminuir quantidade">-</button>
+                <input id="store-modal-quantity" type="number" min="1" max="99" value="1" inputmode="numeric">
+                <button type="button" id="store-quantity-plus" aria-label="Aumentar quantidade">+</button>
+              </div>
+            </div>
+            <div class="store-modal-actions">
+              <button class="btn-secondary" id="store-add-cart-button" type="button">Adicionar ao carrinho</button>
+              <a class="btn-action" id="store-buy-now-button" href="#" target="_blank" rel="noopener noreferrer">Comprar</a>
+            </div>
+            <p class="store-feedback" id="store-feedback" aria-live="polite"></p>
           </div>
         </div>
       </article>
     </div>
 
-    <script src="/app.js?v=9" defer></script>
+    <div class="details-modal" id="cart-modal" hidden>
+      <div class="modal-backdrop" data-close-cart-modal></div>
+      <article class="modal-panel cart-modal-panel" role="dialog" aria-modal="true" aria-labelledby="cart-modal-title">
+        <button class="modal-close" type="button" data-close-cart-modal aria-label="Fechar">x</button>
+        <div class="cart-modal-body">
+          <div class="cart-modal-head">
+            <span class="post-category">Loja StreamCode</span>
+            <h2 id="cart-modal-title">Carrinho</h2>
+            <p id="cart-modal-summary">Revise os produtos antes de comprar.</p>
+          </div>
+          <div class="cart-items" id="cart-items"></div>
+          <div class="cart-total-box">
+            <span>Total</span>
+            <strong id="cart-total">R$ 0,00</strong>
+          </div>
+          <a class="btn-action cart-final-button" id="cart-final-button" href="#" target="_blank" rel="noopener noreferrer">Comprar carrinho</a>
+        </div>
+      </article>
+    </div>
+
+    <script src="/app.js?v=10" defer></script>
   </body>
 </html>
