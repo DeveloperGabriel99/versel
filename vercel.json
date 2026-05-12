@@ -3,7 +3,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "includeFiles": "{data/posts.json,public/**}"
+      "includeFiles": "{data/posts.json,public/**,images/**}"
     }
   },
   "crons": [
@@ -28,6 +28,14 @@
     {
       "src": "/favicon.ico",
       "dest": "/api/index.js"
+    },
+    {
+      "src": "/store-images/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/loja",
+      "dest": "/index.html"
     },
     {
       "src": "/",

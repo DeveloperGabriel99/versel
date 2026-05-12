@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { downloadTelegramPhotoIfPresent } from './services/telegramMedia.js';
 import { extractTelegramMessage, parseTelegramPosts } from './services/telegramParser.js';
+import { listStoreProducts } from './services/storeCatalog.js';
 import {
   getPostById,
   listPosts,
@@ -17,6 +18,7 @@ import { inferMediaTypeFromCategory, syncTmdbMetadata } from './services/tmdbSer
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
+const storeImagesDir = path.join(rootDir, 'images');
 const uploadsDir = path.join(publicDir, 'uploads', 'telegram');
 const dataFile = resolveDataFile(process.env.POSTS_DATA_FILE, rootDir);
 const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
@@ -32,6 +34,7 @@ export function createApp() {
 
   app.use(express.json({ limit: '15mb' }));
   app.use(express.static(publicDir));
+  app.use('/store-images', onlyStoreImages, express.static(storeImagesDir));
 
   app.get('/', (_request, response) => {
     response.sendFile(path.join(publicDir, 'index.html'));
@@ -45,6 +48,15 @@ export function createApp() {
     try {
       response.set('Cache-Control', 'no-store, max-age=0');
       response.json({ posts: await listPosts(dataFile) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/store/products', async (_request, response, next) => {
+    try {
+      response.set('Cache-Control', 'no-store, max-age=0');
+      response.json({ categories: await listStoreProducts(storeImagesDir) });
     } catch (error) {
       next(error);
     }
@@ -226,6 +238,15 @@ function getTelegramDate(message) {
   }
 
   return new Date(message.date * 1000).toISOString();
+}
+
+function onlyStoreImages(request, response, next) {
+  if (!/\.(?:jpe?g|png|webp)$/i.test(request.path)) {
+    response.status(404).end();
+    return;
+  }
+
+  next();
 }
 
 function requireAdminAccess(request, response) {

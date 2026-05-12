@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles.css?v=7">
+    <link rel="stylesheet" href="/styles.css?v=8">
   </head>
   <body>
     <canvas id="particles-js" aria-hidden="true"></canvas>
@@ -16,6 +16,8 @@
       <div class="header-shell">
         <a class="brand" href="https://streamcode.online/" target="_blank" rel="noopener noreferrer">StreamCode</a>
         <nav class="top-nav" aria-label="Navegação principal">
+          <a href="#atualizacoes" data-view-link="updates">Atualizações</a>
+          <a href="#loja" data-view-link="store">Loja</a>
           <a href="https://streamcode.online/" target="_blank" rel="noopener noreferrer">Início</a>
           <a href="https://streamcode.online/iptv.html" target="_blank" rel="noopener noreferrer">IPTV</a>
           <a href="https://streamcode.online/contato.html" target="_blank" rel="noopener noreferrer">Contato</a>
@@ -38,7 +40,7 @@
         </div>
       </section>
 
-      <section class="content-shell updates-section">
+      <section class="content-shell updates-section app-view" id="atualizacoes-view" data-view="updates">
         <div class="menu-bar" id="category-menu" aria-label="Categorias de conteúdo"></div>
         <div class="section-meta">
           <h2 id="active-title">Todos</h2>
@@ -46,6 +48,23 @@
         </div>
         <div class="date-feed" id="date-feed" aria-live="polite"></div>
         <p class="empty-state" id="empty-state" hidden>Nenhum conteúdo publicado ainda.</p>
+      </section>
+
+      <section class="content-shell store-section app-view" id="loja-view" data-view="store" hidden>
+        <div class="store-head">
+          <div>
+            <p class="eyebrow">Loja StreamCode</p>
+            <h2>Produtos em destaque</h2>
+            <p class="store-copy">Acessórios, controles, câmeras e equipamentos separados por categoria.</p>
+          </div>
+          <div class="status-panel store-status">
+            <span class="status-label">Produtos</span>
+            <strong id="store-count">Carregando</strong>
+          </div>
+        </div>
+        <div class="menu-bar store-menu" id="store-category-menu" aria-label="Categorias da loja"></div>
+        <div class="store-feed" id="store-feed" aria-live="polite"></div>
+        <p class="empty-state" id="store-empty-state" hidden>Nenhum produto cadastrado ainda.</p>
       </section>
     </main>
 
@@ -66,6 +85,27 @@
       </article>
     </div>
 
-    <script src="/app.js?v=7" defer></script>
+    <div class="details-modal" id="store-modal" hidden>
+      <div class="modal-backdrop" data-close-store-modal></div>
+      <article class="modal-panel store-modal-panel" role="dialog" aria-modal="true" aria-labelledby="store-modal-title">
+        <button class="modal-close" type="button" data-close-store-modal aria-label="Fechar">x</button>
+        <div class="store-modal-grid">
+          <div class="store-modal-image-wrap">
+            <img class="store-modal-image" id="store-modal-image" alt="">
+          </div>
+          <div class="store-modal-content">
+            <span class="post-category" id="store-modal-category"></span>
+            <h2 id="store-modal-title"></h2>
+            <p class="store-modal-description" id="store-modal-description"></p>
+            <div class="store-price-box">
+              <span>Valor</span>
+              <strong id="store-modal-price"></strong>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <script src="/app.js?v=8" defer></script>
   </body>
 </html>

@@ -14,6 +14,19 @@ const modalTitle = document.querySelector('#modal-title');
 const modalMeta = document.querySelector('#modal-meta');
 const modalOverview = document.querySelector('#modal-overview');
 const modalContent = document.querySelector('.modal-content');
+const viewLinks = document.querySelectorAll('[data-view-link]');
+const updatesView = document.querySelector('#atualizacoes-view');
+const storeView = document.querySelector('#loja-view');
+const storeCategoryMenu = document.querySelector('#store-category-menu');
+const storeFeed = document.querySelector('#store-feed');
+const storeEmptyState = document.querySelector('#store-empty-state');
+const storeCount = document.querySelector('#store-count');
+const storeModal = document.querySelector('#store-modal');
+const storeModalImage = document.querySelector('#store-modal-image');
+const storeModalCategory = document.querySelector('#store-modal-category');
+const storeModalTitle = document.querySelector('#store-modal-title');
+const storeModalDescription = document.querySelector('#store-modal-description');
+const storeModalPrice = document.querySelector('#store-modal-price');
 
 const CATEGORY_MENUS = [
   { id: 'todos', label: 'Todos' },
@@ -29,10 +42,18 @@ const CATEGORY_MENUS = [
 
 let activeCategory = 'todos';
 let latestPosts = [];
+let activeView = window.location.hash === '#loja' ? 'store' : 'updates';
+let activeStoreCategory = 'todos';
+let storeCategories = [];
+let storeProducts = [];
 
 renderCategoryMenu([]);
+renderStoreCategoryMenu([]);
+renderActiveView();
+bindViewEvents();
 bindModalEvents();
 loadPosts();
+loadStoreProducts();
 setInterval(loadPosts, 15000);
 startParticles();
 
@@ -53,6 +74,29 @@ async function loadPosts() {
     emptyState.hidden = false;
     emptyState.textContent = 'Não foi possível carregar os conteúdos agora.';
     postsCount.textContent = 'Indisponível';
+    console.error(error);
+  }
+}
+
+async function loadStoreProducts() {
+  try {
+    const response = await fetch(`/api/store/products?ts=${Date.now()}`, {
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error('Não foi possível carregar os produtos.');
+    }
+
+    const { categories } = await response.json();
+    storeCategories = Array.isArray(categories) ? categories : [];
+    storeProducts = storeCategories.flatMap((category) => category.products ?? []);
+    renderStore();
+  } catch (error) {
+    storeFeed.innerHTML = '';
+    storeEmptyState.hidden = false;
+    storeEmptyState.textContent = 'Não foi possível carregar os produtos agora.';
+    storeCount.textContent = 'Indisponível';
     console.error(error);
   }
 }
@@ -124,6 +168,143 @@ function renderActiveFeed() {
   }
 
   dateFeed.appendChild(fragment);
+}
+
+function renderStore() {
+  renderStoreCategoryMenu(storeCategories);
+  renderActiveStoreFeed();
+}
+
+function renderStoreCategoryMenu(categories) {
+  if (!storeCategoryMenu) {
+    return;
+  }
+
+  storeCategoryMenu.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  const menus = [
+    { id: 'todos', name: 'Todos', count: storeProducts.length },
+    ...categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      count: category.products?.length ?? 0
+    }))
+  ];
+
+  for (const category of menus) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'menu-button';
+    button.dataset.storeCategory = category.id;
+    button.setAttribute('aria-pressed', String(activeStoreCategory === category.id));
+
+    const label = document.createElement('span');
+    label.textContent = category.name;
+
+    const count = document.createElement('strong');
+    count.textContent = category.count;
+
+    button.append(label, count);
+    button.addEventListener('click', () => {
+      activeStoreCategory = category.id;
+      renderStoreCategoryMenu(storeCategories);
+      renderActiveStoreFeed();
+    });
+
+    fragment.appendChild(button);
+  }
+
+  storeCategoryMenu.appendChild(fragment);
+}
+
+function renderActiveStoreFeed() {
+  if (!storeFeed) {
+    return;
+  }
+
+  const filteredCategories = activeStoreCategory === 'todos'
+    ? storeCategories
+    : storeCategories.filter((category) => category.id === activeStoreCategory);
+  const visibleProducts = filteredCategories.flatMap((category) => category.products ?? []);
+
+  storeFeed.innerHTML = '';
+  storeEmptyState.hidden = visibleProducts.length > 0;
+  storeCount.textContent = `${storeProducts.length} ${storeProducts.length === 1 ? 'produto' : 'produtos'}`;
+
+  if (visibleProducts.length === 0) {
+    storeEmptyState.textContent = 'Nenhum produto cadastrado nesta categoria.';
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const category of filteredCategories) {
+    if (!category.products?.length) {
+      continue;
+    }
+
+    fragment.appendChild(createStoreCategorySection(category));
+  }
+
+  storeFeed.appendChild(fragment);
+}
+
+function createStoreCategorySection(category) {
+  const section = document.createElement('section');
+  section.className = 'store-category-section';
+
+  const header = document.createElement('header');
+  header.className = 'date-header store-category-header';
+
+  const title = document.createElement('h3');
+  title.textContent = category.name;
+
+  const count = document.createElement('span');
+  count.textContent = `${category.products.length} ${category.products.length === 1 ? 'produto' : 'produtos'}`;
+
+  header.append(title, count);
+
+  const grid = document.createElement('div');
+  grid.className = 'store-grid';
+
+  for (const product of category.products) {
+    grid.appendChild(createStoreProductCard(product));
+  }
+
+  section.append(header, grid);
+  return section;
+}
+
+function createStoreProductCard(product) {
+  const card = document.createElement('article');
+  card.className = 'store-product-card';
+
+  const image = document.createElement('img');
+  image.className = 'store-product-image';
+  image.src = product.imageUrl;
+  image.alt = product.name;
+  image.loading = 'lazy';
+
+  const content = document.createElement('div');
+  content.className = 'store-product-content';
+
+  const category = document.createElement('span');
+  category.className = 'post-category';
+  category.textContent = product.category;
+
+  const title = document.createElement('h3');
+  title.textContent = product.name;
+
+  const action = document.createElement('button');
+  action.type = 'button';
+  action.className = 'btn-action';
+  action.textContent = 'Ver valor';
+  action.addEventListener('click', () => openStoreModal(product.id));
+
+  content.append(category, title, action);
+  card.append(image, content);
+  return card;
 }
 
 function getFilteredPosts() {
@@ -281,14 +462,85 @@ function closePostModal() {
   document.body.classList.remove('modal-open');
 }
 
+function openStoreModal(productId) {
+  const product = storeProducts.find((item) => item.id === productId);
+
+  if (!product) {
+    return;
+  }
+
+  storeModalImage.src = product.imageUrl;
+  storeModalImage.alt = product.name;
+  storeModalCategory.textContent = product.category;
+  storeModalTitle.textContent = product.name;
+  storeModalDescription.textContent = `Produto da categoria ${product.category}. Clique em fechar para voltar à loja.`;
+  storeModalPrice.textContent = product.priceText || 'Consultar valor';
+  storeModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeStoreModal() {
+  storeModal.hidden = true;
+  storeModalImage.removeAttribute('src');
+  document.body.classList.remove('modal-open');
+}
+
+function bindViewEvents() {
+  viewLinks.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const nextView = link.dataset.viewLink;
+
+      if (!nextView) {
+        return;
+      }
+
+      event.preventDefault();
+      setActiveView(nextView);
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    setActiveView(window.location.hash === '#loja' ? 'store' : 'updates', { updateHash: false });
+  });
+}
+
+function setActiveView(view, options = {}) {
+  activeView = view === 'store' ? 'store' : 'updates';
+  renderActiveView();
+
+  if (options.updateHash === false) {
+    return;
+  }
+
+  history.replaceState(null, '', activeView === 'store' ? '#loja' : '#atualizacoes');
+}
+
+function renderActiveView() {
+  updatesView.hidden = activeView !== 'updates';
+  storeView.hidden = activeView !== 'store';
+
+  viewLinks.forEach((link) => {
+    const isActive = link.dataset.viewLink === activeView;
+    link.setAttribute('aria-current', isActive ? 'page' : 'false');
+  });
+}
+
 function bindModalEvents() {
   document.querySelectorAll('[data-close-modal]').forEach((element) => {
     element.addEventListener('click', closePostModal);
   });
 
+  document.querySelectorAll('[data-close-store-modal]').forEach((element) => {
+    element.addEventListener('click', closeStoreModal);
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !detailsModal.hidden) {
       closePostModal();
+    }
+
+    if (event.key === 'Escape' && !storeModal.hidden) {
+      closeStoreModal();
     }
   });
 
