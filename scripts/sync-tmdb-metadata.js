@@ -33,7 +33,12 @@ const syncedPosts = await mapWithConcurrency(posts, concurrency, async (post, in
   if (!metadata) {
     notFound += 1;
     logProgress(index + 1, posts.length, post.title, 'nao_encontrado');
-    return post;
+    return {
+      ...post,
+      tmdbLookupStatus: 'not_found',
+      tmdbSyncedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
   }
 
   updated += 1;
@@ -42,6 +47,7 @@ const syncedPosts = await mapWithConcurrency(posts, concurrency, async (post, in
   return {
     ...post,
     ...metadata,
+    tmdbLookupStatus: 'found',
     updatedAt: new Date().toISOString()
   };
 });
@@ -51,6 +57,10 @@ await replacePosts(dataFile, syncedPosts);
 console.log(JSON.stringify({ total: posts.length, updated, skipped, notFound }, null, 2));
 
 function needsTmdbSync(post) {
+  if (post.tmdbLookupStatus === 'not_found' && post.tmdbSyncedAt) {
+    return false;
+  }
+
   if (!post.tmdbId && !post.posterPath) return true;
   if (!post.releaseDate) return true;
   if (!Array.isArray(post.genres) || post.genres.length === 0) return true;

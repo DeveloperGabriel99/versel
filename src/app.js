@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { waitUntil } from '@vercel/functions';
 
 import { downloadTelegramPhotoIfPresent } from './services/telegramMedia.js';
 import { extractTelegramMessage, parseTelegramPosts } from './services/telegramParser.js';
@@ -25,7 +26,8 @@ const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
 const cronSecret = process.env.CRON_SECRET?.trim();
-const inlineTmdbLimit = Number(process.env.INLINE_TMDB_LIMIT ?? 60);
+const inlineTmdbLimit = getPositiveInteger(process.env.INLINE_TMDB_LIMIT, 180);
+const inlineTmdbConcurrency = getPositiveInteger(process.env.INLINE_TMDB_CONCURRENCY, 12);
 const tmdbCronBatchSize = getPositiveInteger(process.env.TMDB_CRON_BATCH_SIZE, 1000);
 const tmdbCronConcurrency = getPositiveInteger(process.env.TMDB_CRON_CONCURRENCY, 8);
 
@@ -174,39 +176,54 @@ export function createApp() {
         uploadsDir
       });
 
-      const postInputs = await mapWithConcurrency(parsedPosts.posts, 10, async (parsedPost, index) => {
-        const metadata = parsedPosts.posts.length <= inlineTmdbLimit
-          ? await syncTmdbMetadata({
-            title: parsedPost.title,
-            category: parsedPost.category
-          })
-          : null;
+      const shouldSyncTmdbInline = parsedPosts.posts.length <= inlineTmdbLimit;
+      const postInputs = await mapWithConcurrency(
+        parsedPosts.posts,
+        shouldSyncTmdbInline ? inlineTmdbConcurrency : 10,
+        async (parsedPost, index) => {
+          const metadata = shouldSyncTmdbInline
+            ? await syncTmdbMetadata({
+              title: parsedPost.title,
+              category: parsedPost.category
+            })
+            : null;
 
-        return {
-          title: parsedPost.title,
-          category: parsedPost.category,
-          link: parsedPost.link,
-          thumbnailUrl,
-          telegramChatId: chatId,
-          telegramMessageId: telegramMessage.message_id,
-          sourceKey: `${chatId}:${telegramMessage.message_id}:${parsedPost.sourceItemKey ?? index}`,
-          publishedAt: getTelegramDate(telegramMessage),
-          ...(metadata ?? {})
-        };
-      });
+          return {
+            title: parsedPost.title,
+            category: parsedPost.category,
+            link: parsedPost.link,
+            thumbnailUrl,
+            telegramChatId: chatId,
+            telegramMessageId: telegramMessage.message_id,
+            sourceKey: `${chatId}:${telegramMessage.message_id}:${parsedPost.sourceItemKey ?? index}`,
+            publishedAt: getTelegramDate(telegramMessage),
+            ...(metadata ?? {})
+          };
+        });
 
       const results = await upsertTelegramPosts(dataFile, postInputs);
       const savedPosts = results.map((result) => result.post);
       const createdCount = results.filter((result) => result.created).length;
+      const pendingTmdbCount = savedPosts.filter(needsTmdbSync).length;
       const categorySummary = savedPosts.reduce((summary, post) => {
         summary[post.category] = (summary[post.category] ?? 0) + 1;
         return summary;
       }, {});
 
+      if (!shouldSyncTmdbInline && pendingTmdbCount > 0) {
+        queueMissingTmdbSync({
+          source: 'telegram-webhook',
+          messageId: telegramMessage.message_id,
+          pending: pendingTmdbCount
+        });
+      }
+
       response.status(createdCount > 0 ? 201 : 200).json({
         ok: true,
         created: createdCount,
         updated: savedPosts.length - createdCount,
+        tmdbInline: shouldSyncTmdbInline,
+        tmdbQueued: !shouldSyncTmdbInline && pendingTmdbCount > 0,
         posts: savedPosts
       });
       console.info('[telegram-webhook] processed', {
@@ -215,6 +232,9 @@ export function createApp() {
         parsed: parsedPosts.posts.length,
         created: createdCount,
         updated: savedPosts.length - createdCount,
+        tmdbInline: shouldSyncTmdbInline,
+        tmdbQueued: !shouldSyncTmdbInline && pendingTmdbCount > 0,
+        pendingTmdb: pendingTmdbCount,
         categories: categorySummary
       });
     } catch (error) {
@@ -360,6 +380,24 @@ async function syncMissingTmdbBatch() {
     notFound,
     remaining: nextPosts.filter(needsTmdbSync).length
   };
+}
+
+function queueMissingTmdbSync(context) {
+  const job = syncMissingTmdbBatch()
+    .then((result) => {
+      console.info('[tmdb-background-sync] finished', {
+        ...context,
+        ...result
+      });
+    })
+    .catch((error) => {
+      console.error('[tmdb-background-sync] failed', {
+        ...context,
+        error: error.message
+      });
+    });
+
+  waitUntil(job);
 }
 
 function needsTmdbSync(post) {

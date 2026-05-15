@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@vercel/blob": "^2.3.3",
+    "@vercel/functions": "^3.6.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2"
   },
