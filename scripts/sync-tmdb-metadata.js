@@ -61,6 +61,10 @@ function needsTmdbSync(post) {
     return false;
   }
 
+  if (post.tmdbLookupStatus === 'found' && post.tmdbSyncedAt && (post.tmdbId || post.posterPath)) {
+    return false;
+  }
+
   if (!post.tmdbId && !post.posterPath) return true;
   if (!post.releaseDate) return true;
   if (!Array.isArray(post.genres) || post.genres.length === 0) return true;
