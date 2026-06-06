@@ -46,6 +46,26 @@ export async function registerTelegramWebhook({ botToken, publicUrl, secretToken
   return telegramRequest(safeBotToken, 'setWebhook', payload);
 }
 
+export async function sendTelegramMessage({ botToken, chatId, text } = {}) {
+  const safeBotToken = String(botToken ?? '').trim();
+  const safeChatId = String(chatId ?? '').trim();
+  const safeText = String(text ?? '').trim();
+
+  if (!safeBotToken || !safeChatId || !safeText) {
+    return {
+      ok: false,
+      skipped: 'missing_required_fields'
+    };
+  }
+
+  return telegramRequest(safeBotToken, 'sendMessage', {
+    chat_id: safeChatId,
+    text: safeText,
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true
+  });
+}
+
 export async function ensureTelegramWebhook({ botToken, publicUrl, secretToken } = {}) {
   const webhookUrl = buildTelegramWebhookUrl(publicUrl);
 

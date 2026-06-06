@@ -15,7 +15,7 @@ import {
   upsertTelegramPosts
 } from './services/postsStore.js';
 import { inferMediaTypeFromCategory, syncTmdbMetadata } from './services/tmdbService.js';
-import { ensureTelegramWebhook } from './services/telegramWebhook.js';
+import { ensureTelegramWebhook, sendTelegramMessage } from './services/telegramWebhook.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -26,6 +26,7 @@ const dataFile = resolveDataFile(process.env.POSTS_DATA_FILE, rootDir);
 const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 const publicUrl = process.env.PUBLIC_URL?.trim();
+const defaultPublicUrl = 'https://streamcode-atualizacoes.vercel.app';
 const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
 const cronSecret = process.env.CRON_SECRET?.trim();
 const inlineTmdbLimit = getPositiveInteger(process.env.INLINE_TMDB_LIMIT, 180);
@@ -258,6 +259,11 @@ export function createApp() {
         });
       }
 
+      queueTelegramPublishSummary({
+        chatId,
+        createdCount
+      });
+
       response.status(createdCount > 0 ? 201 : 200).json({
         ok: true,
         created: createdCount,
@@ -438,6 +444,49 @@ function queueMissingTmdbSync(context) {
     });
 
   waitUntil(job);
+}
+
+function queueTelegramPublishSummary({ chatId, createdCount }) {
+  const job = sendTelegramMessage({
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    chatId,
+    text: buildTelegramPublishSummary(createdCount)
+  })
+    .then((result) => {
+      if (!result.ok) {
+        console.error('[telegram-publish-summary] failed', {
+          chatId,
+          error: result.description ?? result.skipped ?? 'send_failed'
+        });
+        return;
+      }
+
+      console.info('[telegram-publish-summary] sent', {
+        chatId,
+        created: createdCount
+      });
+    })
+    .catch((error) => {
+      console.error('[telegram-publish-summary] failed', {
+        chatId,
+        error: error.message
+      });
+    });
+
+  waitUntil(job);
+}
+
+function buildTelegramPublishSummary(createdCount) {
+  const itemText = createdCount === 1 ? '1 novo item adicionado.' : `${createdCount} novos itens adicionados.`;
+  const listUrl = new URL('/', publicUrl || defaultPublicUrl).toString();
+
+  return [
+    '*Atualização de conteúdos.*',
+    '',
+    itemText,
+    '',
+    `*Lista completa em:* ${listUrl}`
+  ].join('\n');
 }
 
 async function ensureConfiguredTelegramWebhook() {
