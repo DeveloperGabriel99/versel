@@ -77,8 +77,9 @@ export async function ensureTelegramWebhook({ botToken, publicUrl, secretToken }
   }
 
   const currentUrl = info.result?.url ?? '';
+  const shouldRegister = currentUrl !== webhookUrl || Boolean(String(secretToken ?? '').trim());
 
-  if (currentUrl === webhookUrl) {
+  if (!shouldRegister) {
     return {
       ok: true,
       configured: true,
@@ -95,7 +96,7 @@ export async function ensureTelegramWebhook({ botToken, publicUrl, secretToken }
   return {
     ok: registration.ok,
     configured: Boolean(registration.ok),
-    action: registration.ok ? 'registered' : 'register_failed',
+    action: registration.ok ? currentUrl === webhookUrl ? 'refreshed' : 'registered' : 'register_failed',
     url: webhookUrl,
     previousUrl: currentUrl || null,
     error: registration.ok ? null : registration.description ?? 'telegram_register_failed'
