@@ -53,6 +53,7 @@ Depois que a Vercel gerar a URL final e `PUBLIC_URL` estiver correto:
 
 ```powershell
 npm.cmd run telegram:set-webhook
+npm.cmd run telegram:ensure-webhook
 npm.cmd run telegram:webhook-info
 ```
 
@@ -61,3 +62,5 @@ O webhook final sera:
 ```text
 https://seu-dominio-ou-projeto.vercel.app/webhook/telegram
 ```
+
+Depois disso, a rota protegida `/api/cron/maintenance` roda diariamente pela Vercel para conferir o webhook e sincronizar capas/metadados pendentes da TMDb.

@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "telegram:set-webhook": "node scripts/telegram-tools.js register",
+    "telegram:ensure-webhook": "node scripts/telegram-tools.js ensure",
     "telegram:delete-webhook": "node scripts/telegram-tools.js delete",
     "telegram:webhook-info": "node scripts/telegram-tools.js info",
     "tmdb:sync-missing": "node scripts/sync-tmdb-metadata.js",

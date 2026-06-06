@@ -131,11 +131,14 @@ vercel deploy --prod
 
 Depois do deploy, configure `PUBLIC_URL` com a URL final da Vercel ou com seu dominio proprio apontado para o projeto.
 
-Depois rode:
+Depois rode uma vez ou use o comando de verificacao:
 
 ```powershell
 npm.cmd run telegram:set-webhook
+npm.cmd run telegram:ensure-webhook
 ```
+
+Em producao, o cron diario `/api/cron/maintenance` tambem confere se o webhook ainda aponta para `PUBLIC_URL` e registra novamente quando necessario. O mesmo job sincroniza metadados pendentes da TMDb.
 
 Para remover o webhook:
 

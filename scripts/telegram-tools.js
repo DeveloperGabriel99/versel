@@ -1,5 +1,7 @@
 import 'dotenv/config';
 
+import { ensureTelegramWebhook } from '../src/services/telegramWebhook.js';
+
 const action = process.argv[2] ?? 'info';
 const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
 const publicUrl = process.env.PUBLIC_URL?.trim();
@@ -8,6 +10,22 @@ const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 if (!botToken) {
   console.error('TELEGRAM_BOT_TOKEN nao configurado.');
   process.exit(1);
+}
+
+if (action === 'ensure') {
+  const result = await ensureTelegramWebhook({
+    botToken,
+    publicUrl,
+    secretToken
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+
+  if (!result.ok) {
+    process.exit(1);
+  }
+
+  process.exit(0);
 }
 
 const methodByAction = {

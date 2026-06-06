@@ -15,6 +15,7 @@ import {
   upsertTelegramPosts
 } from './services/postsStore.js';
 import { inferMediaTypeFromCategory, syncTmdbMetadata } from './services/tmdbService.js';
+import { ensureTelegramWebhook } from './services/telegramWebhook.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -24,6 +25,7 @@ const uploadsDir = path.join(publicDir, 'uploads', 'telegram');
 const dataFile = resolveDataFile(process.env.POSTS_DATA_FILE, rootDir);
 const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID?.trim();
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+const publicUrl = process.env.PUBLIC_URL?.trim();
 const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
 const cronSecret = process.env.CRON_SECRET?.trim();
 const inlineTmdbLimit = getPositiveInteger(process.env.INLINE_TMDB_LIMIT, 180);
@@ -78,6 +80,44 @@ export function createApp() {
       response.json({
         ok: true,
         ...(await syncMissingTmdbBatch())
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/cron/telegram-webhook', async (request, response, next) => {
+    try {
+      if (!requireCronAccess(request, response)) {
+        return;
+      }
+
+      response.set('Cache-Control', 'no-store, max-age=0');
+      response.json({
+        ok: true,
+        telegramWebhook: await ensureConfiguredTelegramWebhook()
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/cron/maintenance', async (request, response, next) => {
+    try {
+      if (!requireCronAccess(request, response)) {
+        return;
+      }
+
+      const [telegramWebhook, tmdb] = await Promise.all([
+        ensureConfiguredTelegramWebhook(),
+        syncMissingTmdbBatch()
+      ]);
+
+      response.set('Cache-Control', 'no-store, max-age=0');
+      response.json({
+        ok: true,
+        telegramWebhook,
+        tmdb
       });
     } catch (error) {
       next(error);
@@ -398,6 +438,20 @@ function queueMissingTmdbSync(context) {
     });
 
   waitUntil(job);
+}
+
+async function ensureConfiguredTelegramWebhook() {
+  const result = await ensureTelegramWebhook({
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    publicUrl,
+    secretToken: webhookSecret
+  });
+
+  if (!result.ok || result.action === 'registered') {
+    console.info('[telegram-webhook-maintenance]', result);
+  }
+
+  return result;
 }
 
 function needsTmdbSync(post) {
